@@ -1,0 +1,17 @@
+services:
+  hids:
+    build: .
+    container_name: hids-dashboard
+    restart: unless-stopped
+    ports:
+      - "5055:5055"
+    volumes:
+      - hids_data:/app/data
+    environment:
+      - HIDS_DB=/app/data/hids.db
+      - HIDS_SECRET=/app/data/hids_secret.key
+      - HIDS_PORT=5055
+      - HIDS_HOST=0.0.0.0
+
+volumes:
+  hids_data:
