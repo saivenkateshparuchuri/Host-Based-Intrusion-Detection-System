@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{% block title %}HIDS{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head><body class="authbody">
+<div class="authwrap">
+ <div class="authcard">
+  <div class="authlogo"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#e8eef7" stroke-width="2"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div>
+  <h1>{% block heading %}{% endblock %}</h1>
+  <p class="muted" style="text-align:center;margin:6px 0 20px">Host-Based Intrusion Detection<br>Keylogger &amp; Input-Capture Detection</p>
+  {% if error %}<div class="autherr">{{ error }}</div>{% endif %}
+  {% block form %}{% endblock %}
+ </div>
+ <p class="muted" style="text-align:center;margin-top:14px">Local dashboard &middot; metadata only &middot; no keystrokes captured</p>
+</div></body></html>

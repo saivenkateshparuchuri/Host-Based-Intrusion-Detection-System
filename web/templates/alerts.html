@@ -1,0 +1,13 @@
+{% extends "base.html" %}{% block body %}
+<h2>Alerts</h2>
+<form method="get">Severity:
+ <select name="severity" onchange="this.form.submit()">
+  {% for s in ['','High','Medium','Low'] %}<option value="{{ s }}" {{ 'selected' if s==sev }}>{{ s or 'All' }}</option>{% endfor %}
+ </select></form><br>
+<table><tr><th>Severity</th><th>Subject</th><th>PID</th><th>Reason</th><th>Last seen</th><th>Status</th></tr>
+{% for r in rows %}<tr>
+ <td class="{{ r.severity }}">{{ r.severity }} ({{ r.score }})</td>
+ <td><a href="/alert/{{ r.id }}">{{ r.subject }}</a></td><td>{{ r.pid or '-' }}</td>
+ <td>{{ (r.reasons|fromjson)[0] }}</td><td>{{ r.last_seen|ts }}</td><td>{{ r.status }}</td></tr>
+{% else %}<tr><td colspan="6">No alerts</td></tr>{% endfor %}</table>
+{% endblock %}

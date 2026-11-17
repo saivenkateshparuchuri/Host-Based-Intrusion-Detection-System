@@ -1,0 +1,18 @@
+{% extends "auth_base.html" %}
+{% block title %}Create account | HIDS{% endblock %}
+{% block heading %}Create account{% endblock %}
+{% block form %}
+{% if disabled %}<p class="muted" style="text-align:center">Ask an administrator to create your account.</p>
+<p style="text-align:center"><a class="orange" href="/login">Back to sign in</a></p>
+{% else %}
+{% if first_run %}<div class="authinfo">This is the first account, so it will be the administrator.</div>{% endif %}
+<form method="post" autocomplete="off">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+ <label>Username<input name="username" autocomplete="username" required autofocus minlength="3" maxlength="32" value="{{ username|default('') }}"></label>
+ <label>Password<input name="password" type="password" autocomplete="new-password" required minlength="8"></label>
+ <label>Confirm password<input name="confirm" type="password" autocomplete="new-password" required minlength="8"></label>
+ <button class="wide">Create account</button>
+</form>
+<p class="muted" style="text-align:center;margin-top:16px">Already have an account? <a class="orange" href="/login">Sign in</a></p>
+{% endif %}
+{% endblock %}

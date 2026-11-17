@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block body %}
+<h2>Processes ({{ procs|length }})</h2>
+<p class="muted">Last scan: {{ last|ts }}</p>
+<table><tr><th>PID</th><th>Name</th><th>Executable</th><th>Parent</th><th>User</th><th>Started</th><th>Mem MB</th><th>Input dev.</th></tr>
+{% for p in procs %}<tr><td>{{ p.pid }}</td><td>{{ p.name }}</td><td>{{ p.exe or '-' }}</td>
+<td>{{ p.parent_name or '-' }}</td><td>{{ p.username or '-' }}</td><td>{{ p.create_time|ts }}</td>
+<td>{{ p.memory_mb }}</td><td>{{ 'yes' if p.input_devices else '' }}{{ '' if p.fd_readable else 'n/a' }}</td></tr>
+{% else %}<tr><td colspan="8">No data yet. Press "Scan now" on the overview page.</td></tr>{% endfor %}</table>
+{% endblock %}

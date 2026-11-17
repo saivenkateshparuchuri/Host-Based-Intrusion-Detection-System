@@ -1,0 +1,13 @@
+{% extends "auth_base.html" %}
+{% block title %}Sign in | HIDS{% endblock %}
+{% block heading %}Sign in{% endblock %}
+{% block form %}
+{% if first_run %}<div class="authinfo">No accounts yet. <a href="/register">Create the first account</a> (it becomes the admin).</div>{% endif %}
+<form method="post" autocomplete="on">
+ <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+ <label>Username<input name="username" autocomplete="username" required autofocus value="{{ username|default('') }}"></label>
+ <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+ <button class="wide">Sign in</button>
+</form>
+{% if can_register %}<p class="muted" style="text-align:center;margin-top:16px">New here? <a class="orange" href="/register">Create an account</a></p>{% endif %}
+{% endblock %}

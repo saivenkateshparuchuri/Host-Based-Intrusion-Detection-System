@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c1426">
+  <title>{% block title %}HIDS Security Console{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard_v2.css') }}">
+</head>
+<body class="app-ui">
+{% set p = request.path %}
+<aside class="v2-sidebar" aria-label="Main navigation">
+  <a class="v2-brand" href="/" aria-label="HIDS Security Console homepage">
+    <span class="brand-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 6v6c0 5-4 9-9 10-5-1-9-5-9-10V6z"/><path d="m8 12 3 3 5-6"/></svg></span>
+    <span><strong>HIDS Guard</strong><small>HOST SECURITY CONSOLE</small></span>
+  </a>
+  <div class="v2-sidebar-scroll">
+    <p class="v2-nav-label">WORKSPACE</p>
+    <nav class="v2-nav">
+      <a href="/" class="{{ 'active' if p=='/' }}" aria-current="{{ 'page' if p=='/' else 'false' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.2"/><rect x="13" y="3" width="8" height="8" rx="1.2"/><rect x="3" y="13" width="8" height="8" rx="1.2"/><rect x="13" y="13" width="8" height="8" rx="1.2"/></svg><span>Dashboard</span></a>
+      <a href="/alerts" class="{{ 'active' if p.startswith('/alert') and request.args.get('severity','') != 'High' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg><span>Security Alerts</span></a>
+      <a href="/alerts?severity=High" class="{{ 'active' if p=='/alerts' and request.args.get('severity','') == 'High' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 4v5c0 5-4 8-9 10-5-2-9-5-9-10V7l9-4Z"/><path d="M12 7v6M12 17h.01"/></svg><span>High Severity</span></a>
+      <a href="/processes" class="{{ 'active' if p=='/processes' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 9h6v6H9zM9 1v4M15 1v4M9 19v4M15 19v4M1 9h4M1 15h4M19 9h4M19 15h4"/></svg><span>Host Processes</span></a>
+    </nav>
+    <p class="v2-nav-label">TOOLS</p>
+    <nav class="v2-nav">
+      <a href="/#sensor-status"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h3l3-7 4 14 3-7h7"/></svg><span>Sensor Status</span></a>
+      <a href="/export.csv"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v13m-5-5 5 5 5-5M4 19v3h16v-3"/></svg><span>Export CSV</span></a>
+    </nav>
+    <div class="v2-sidebar-tip"><span class="tip-signal"></span><strong>Privacy-first monitoring</strong><p>Process and event-tap metadata. No keystrokes collected.</p></div>
+  </div>
+  <div class="v2-account">
+    <div class="v2-account-line"><span class="v2-avatar">{{ (current_user or 'H')[0]|upper }}</span><div class="v2-account-user"><strong>{{ current_user }}</strong><small>{{ role|capitalize }} · Local host</small></div></div>
+    <form method="post" action="/logout"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="v2-signout" type="submit">Sign out</button></form>
+  </div>
+</aside>
+<div class="v2-content">
+  <header class="v2-page-header">
+    <div><p class="v2-eyebrow">SECURITY OPERATIONS / {{ 'OVERVIEW' if p=='/' else 'INVESTIGATION' }}</p><h1>{{ 'Dashboard' if p=='/' else ('Host Processes' if p=='/processes' else 'Security Alerts') }}</h1></div>
+    <div class="v2-header-right"><span class="v2-live"><i></i> Local HIDS Console</span><span class="v2-time" id="header-refresh">Live host monitoring</span><div class="v2-userbubble">{{ (current_user or 'H')[0]|upper }}</div></div>
+  </header>
+  <main class="v2-main">{% for m in get_flashed_messages() %}<div class="authinfo" role="alert">{{ m }}</div>{% endfor %}{% block body %}{% endblock %}</main>
+  <footer class="v2-footer"><span>HIDS Guard · Local host-based detection</span><span>Indicators are not malware verdicts. Metadata only.</span></footer>
+</div>
+</body>
+</html>

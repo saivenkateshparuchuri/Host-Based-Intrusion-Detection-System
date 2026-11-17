@@ -1,0 +1,17 @@
+{% extends "base.html" %}{% block body %}
+<h2>Alert #{{ a.id }}: {{ a.subject }}</h2>
+<div class="card">
+ <p><span class="{{ a.severity }}">{{ a.severity }}</span> (score {{ a.score }}) &middot; PID {{ a.pid or '-' }}
+ &middot; seen {{ a.count }} times</p>
+ <p>Path: <code>{{ a.path or '-' }}</code></p>
+ <p>First seen {{ a.first_seen|ts }} &middot; last seen {{ a.last_seen|ts }}</p>
+ <h3>Why this alert fired</h3><ul>{% for r in reasons %}<li>{{ r }}</li>{% endfor %}</ul>
+ <p class="muted">An indicator is not proof of malware. Review the context before acting.</p>
+</div>
+<div class="card"><h3>Analyst review</h3>
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+ <select name="status">{% for s in ['New','Investigating','False positive','Confirmed','Dismissed'] %}
+  <option {{ 'selected' if s==a.status }}>{{ s }}</option>{% endfor %}</select><br><br>
+ <textarea name="note" rows="4" cols="60" placeholder="Investigation notes">{{ a.note }}</textarea><br><br>
+ <button>Save</button></form></div>
+{% endblock %}
