@@ -5,6 +5,7 @@ import re
 import os
 import sys
 import secrets
+import hashlib
 from collections import Counter
 import threading
 from urllib.parse import urlsplit
@@ -19,7 +20,7 @@ from sensors import process_sensor
 _state = {"procs": [], "last_scan": 0.0}
 _failures = {}      # (username, ip) -> [timestamps of recent failed logins]
 USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,32}$")
-PUBLIC_ENDPOINTS = {"login", "register", "static"}
+PUBLIC_ENDPOINTS = {"login", "register", "static", "agent_register", "agent_ingest"}
 
 
 def _secret_key():
@@ -69,6 +70,19 @@ def create_app(start_scanner=True):
         finally:
             conn.close()
 
+    def current_user_id():
+        if "user" not in session:
+            return None
+        rows = q("SELECT id FROM users WHERE username=?", (session["user"],))
+        return rows[0]["id"] if rows else None
+
+    def owned_device_ids():
+        conn = db.connect()
+        try:
+            return {row["device_id"] for row in db.list_devices(conn, current_user_id())}
+        finally:
+            conn.close()
+
     @app.template_filter("ts")
     def fmt_ts(v):
         return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(v)) if v else "-"
@@ -84,7 +98,8 @@ def create_app(start_scanner=True):
             if request.path.startswith("/api/"):
                 return jsonify(error="login required"), 401
             return redirect(url_for("login", next=request.full_path.rstrip("?")))
-        if request.method == "POST":                                   # CSRF check on every POST
+        if request.method == "POST" and request.endpoint not in {"agent_register", "agent_ingest"}:
+                                                                            # CSRF check on browser POSTs
             sent = request.form.get("csrf_token", "")
             if not sent or not secrets.compare_digest(sent, session.get("csrf", "")):
                 return "Invalid or missing CSRF token. Go back, refresh the page and try again.", 400
@@ -108,6 +123,67 @@ def create_app(start_scanner=True):
         session.permanent = True
         session["user"], session["role"] = user["username"], user["role"]
         session["csrf"] = secrets.token_hex(16)
+
+    @app.route("/api/agent/register", methods=["POST"])
+    def agent_register():
+        payload = request.get_json(silent=True) or {}
+        username = str(payload.get("username", "")).strip()
+        password = payload.get("password", "")
+        device_id = str(payload.get("device_id", "")).strip()
+        name = str(payload.get("name", "")).strip()[:100]
+        platform = str(payload.get("platform", "unknown")).strip()[:40]
+        if not username or not isinstance(password, str) or not re.fullmatch(
+                r"[A-Za-z0-9_.:-]{1,100}", device_id) or not name:
+            return jsonify(error="username, password, device_id, and name are required"), 400
+        conn = db.connect()
+        try:
+            user = db.get_user(conn, username)
+            if not user or not check_password_hash(user["pw_hash"], password):
+                return jsonify(error="invalid credentials"), 401
+            token = secrets.token_urlsafe(32)
+            db.upsert_device(conn, device_id, name, platform,
+                             hashlib.sha256(token.encode()).hexdigest(), user["id"])
+            return jsonify(device_id=device_id, token=token)
+        finally:
+            conn.close()
+
+    @app.route("/api/agent/scan", methods=["POST"])
+    def agent_ingest():
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return jsonify(error="bearer token required"), 401
+        token = auth[7:].strip()
+        payload = request.get_json(silent=True) or {}
+        device_id = str(payload.get("device_id", "")).strip()
+        conn = db.connect()
+        try:
+            device = db.get_device_by_token(conn, hashlib.sha256(token.encode()).hexdigest())
+            if not device or device["device_id"] != device_id:
+                return jsonify(error="invalid device token"), 401
+            alerts = payload.get("alerts", [])
+            if not isinstance(alerts, list) or len(alerts) > 500:
+                return jsonify(error="alerts must be a list of at most 500 items"), 400
+            db.save_remote_scan(conn, device_id, alerts, payload.get("processes", 0),
+                                payload.get("unreadable", 0), payload.get("alert_count", len(alerts)),
+                                payload.get("seconds", 0))
+            conn.execute("UPDATE devices SET last_seen=?, name=?, platform=? WHERE device_id=?",
+                         (time.time(), str(payload.get("name", device["name"]))[:100],
+                          str(payload.get("platform", device["platform"]))[:40], device_id))
+            conn.commit()
+            return jsonify(ok=True)
+        except (TypeError, ValueError):
+            return jsonify(error="invalid scan values"), 400
+        finally:
+            conn.close()
+
+    @app.route("/api/devices")
+    def devices():
+        conn = db.connect()
+        try:
+            rows = db.list_devices(conn, current_user_id())
+            return jsonify(devices=[dict(row) for row in rows])
+        finally:
+            conn.close()
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -231,6 +307,12 @@ def create_app(start_scanner=True):
         n_buckets, step = periods[selected]
         now = time.time()
         start = now - n_buckets * step
+        device_id = request.args.get("device_id", "").strip()
+        if device_id:
+            if device_id not in owned_device_ids():
+                return jsonify(error="unknown device"), 404
+        device_sql = " AND device_id=?" if device_id else ""
+        device_args = (device_id,) if device_id else ()
         series = {name: [0] * n_buckets for name in
                   ("Total", "High", "Medium", "Low", "Open", "InputTap", "Persistence", "Scans")}
         severity = {name: 0 for name in ("High", "Medium", "Low")}
@@ -238,7 +320,8 @@ def create_app(start_scanner=True):
         subjects = Counter()
         recent = []
         rows = q("""SELECT id, severity, subject, pid, reasons, status, first_seen, last_seen
-                    FROM alerts WHERE first_seen>=? ORDER BY last_seen DESC""", (start,))
+                    FROM alerts WHERE first_seen>=?""" + device_sql + " ORDER BY last_seen DESC",
+                    (start,) + device_args)
         open_statuses = {"New", "Investigating"}
         input_taps = 0
         persistence = 0
@@ -284,15 +367,16 @@ def create_app(start_scanner=True):
 
         # Aggregate scans inside SQLite, rather than transferring a large scan log.
         scan_counts = q("""SELECT CAST((ts - ?) / ? AS INTEGER) AS bucket, COUNT(*) AS n
-                           FROM scans WHERE ts>=? AND ts<=?
-                           GROUP BY bucket""", (start, step, start, now))
+                           FROM scans WHERE ts>=? AND ts<=?""" + device_sql + """
+                           GROUP BY bucket""", (start, step, start, now) + device_args)
         scan_count = 0
         for r in scan_counts:
             i = r["bucket"]
             if i is not None and 0 <= i < n_buckets:
                 series["Scans"][i] = r["n"]
                 scan_count += r["n"]
-        last = q("SELECT ts, processes, unreadable FROM scans ORDER BY id DESC LIMIT 1")
+        last = q("SELECT ts, processes, unreadable FROM scans WHERE 1=1" + device_sql +
+                 " ORDER BY id DESC LIMIT 1", device_args)
         last = last[0] if last else None
         visibility = (round(100 * (1 - last["unreadable"] / last["processes"]), 1)
                       if last and last["processes"] else None)
@@ -307,7 +391,7 @@ def create_app(start_scanner=True):
                       "visibility": visibility},
             "rules": [{"name": rule, "count": n} for rule, n in rule_counts.most_common(5)],
             "top_subjects": [{"name": name, "count": n} for name, n in subjects.most_common(5)],
-            "recent": recent, "last_scan": last["ts"] if last else None,
+            "recent": recent, "last_scan": last["ts"] if last else None, "device_id": device_id,
             "sensors": {"process": bool(last), "persistence": bool(last),
                         "input": process_sensor.get_macos_audit_status() if sys.platform == "darwin" else None,
                         "rule_count": len(config.RULE_POINTS), "platform": sys.platform}

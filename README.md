@@ -45,6 +45,25 @@ The new `MACOS_KEYBOARD_EVENT_TAP` rule scores **2 (Low)** on its own and
 can increase severity when correlated with other suspicious indicators.
 macOS may restrict event-tap visibility; other capture mechanisms may be missed.
 
+## Shared dashboard with laptop agents
+
+The hosted dashboard scans its own server, not a visitor's laptop. To show
+each laptop's own metadata-only process and alert results in the shared
+dashboard, install this repository on each laptop and register an agent:
+
+```bash
+python3 tools/agent.py register \
+  --server https://host-based-intrusion-detection-system-p1o1.onrender.com \
+  --username YOUR_DASHBOARD_USER
+python3 tools/agent.py run --interval 30
+```
+
+The agent stores its bearer token in `~/.hids-agent.json` with restrictive
+permissions and sends process counts, unreadable counts, scan timing, and
+explainable alert metadata. It never sends command-line text or keystrokes.
+After registration, select the laptop from the dashboard's **Device** menu.
+Use HTTPS for the dashboard URL and register each laptop separately.
+
 To **review which apps have user-granted input permissions**, open **System
 Settings → Privacy & Security → Input Monitoring** and review entries manually.
 This project does not access or modify the private TCC permission database.

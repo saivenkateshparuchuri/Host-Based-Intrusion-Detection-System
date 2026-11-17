@@ -3,6 +3,7 @@
 {% block body %}
 <section class="v2-toolbar" aria-label="Dashboard actions">
  <div class="v2-timegroup"><label for="range">Time Range</label><select id="range"><option value="24h">Last 24 Hours</option><option value="3d" selected>Last 3 Days</option><option value="7d">Last 7 Days</option><option value="30d">Last 30 Days</option></select></div>
+ <div class="v2-timegroup"><label for="device">Device</label><select id="device"><option value="">All devices</option></select></div>
  <div class="v2-actions"><span id="data-status" role="status">Loading host data…</span><button type="button" class="v2-outline-btn" id="refresh-data"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M5 10a7 7 0 0 1 12-3l3 4M4 13l3 4a7 7 0 0 0 12-3"/></svg>Refresh</button><form method="post" action="/scan"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="v2-primary-btn">Scan now</button></form></div>
 </section>
 <section class="v2-stat-grid" aria-label="Security statistics">

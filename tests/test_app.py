@@ -63,3 +63,29 @@ def test_history_pruning_keeps_alerts(tmp_path, monkeypatch):
     assert conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM alerts").fetchone()[0] == 1
+
+
+def test_agent_ingestion_is_device_scoped(tmp_path, monkeypatch):
+    client = make_client(tmp_path, monkeypatch)
+    assert register(client).status_code == 302
+    response = client.post("/api/agent/register", json={
+        "username": "alice", "password": "s3cretpass", "device_id": "laptop-a",
+        "name": "Alice laptop", "platform": "macOS",
+    })
+    assert response.status_code == 200
+    token = response.get_json()["token"]
+    scan = client.post("/api/agent/scan", headers={"Authorization": "Bearer " + token},
+                       json={"device_id": "laptop-a", "processes": 12, "unreadable": 1,
+                             "alert_count": 1, "seconds": 0.2, "alerts": [{
+                                 "key": "proc:/tmp/demo", "severity": "High", "score": 4,
+                                 "subject": "demo", "pid": 42, "path": "/tmp/demo",
+                                 "reasons": ["[EXEC_IN_TEMP] temporary"],
+                             }]})
+    assert scan.status_code == 200
+    assert client.post("/api/agent/scan",
+                       headers={"Authorization": "Bearer wrong"},
+                       json={"device_id": "laptop-a", "alerts": []}).status_code == 401
+    data = client.get("/api/dashboard/analytics?range=24h&device_id=laptop-a").get_json()
+    assert data["device_id"] == "laptop-a"
+    assert data["stats"]["total"] == 1
+    assert client.get("/api/devices").get_json()["devices"][0]["name"] == "Alice laptop"

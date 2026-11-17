@@ -6,6 +6,7 @@
   const palette = {High:'#ef7077', Medium:'#f2ba49', Low:'#629bff', Total:'#9b8cfb',
                    Open:'#b89cff', InputTap:'#51c5df', Persistence:'#e3ad5f', Scans:'#76a5fb', Visibility:'#39cda1'};
   let busy = false;
+  let selectedDevice = '';
   const svgNode = (name, attrs={}, value=null) => {
     const n=document.createElementNS(NS,name);
     for(const [k,v] of Object.entries(attrs)) n.setAttribute(k,String(v));
@@ -144,14 +145,29 @@
   async function load(){
     if(busy)return;busy=true;$('data-status').textContent='Refreshing…';
     try{
-      const response=await fetch('/api/dashboard/analytics?range='+encodeURIComponent($('range').value),{credentials:'same-origin',cache:'no-store'});
+      const params=new URLSearchParams({range:$('range').value});
+      if(selectedDevice)params.set('device_id',selectedDevice);
+      const response=await fetch('/api/dashboard/analytics?'+params.toString(),{credentials:'same-origin',cache:'no-store'});
       if(response.status===401){window.location.assign('/login');return;}
       if(!response.ok)throw Error('HTTP '+response.status);
       paint(await response.json());
     }catch(err){$('data-status').textContent='Dashboard unavailable · '+err.message;}
     finally{busy=false;}
   }
+  async function loadDevices(){
+    const response=await fetch('/api/devices',{credentials:'same-origin',cache:'no-store'});
+    if(!response.ok)throw Error('HTTP '+response.status);
+    const select=$('device');
+    for(const device of (await response.json()).devices){
+      const option=document.createElement('option');
+      option.value=device.device_id;
+      option.textContent=device.name+' ('+device.platform+')';
+      select.appendChild(option);
+    }
+  }
   $('range').addEventListener('change',load);
+  $('device').addEventListener('change',event=>{selectedDevice=event.target.value;load();});
   $('refresh-data').addEventListener('click',load);
-  load();setInterval(()=>{if(!document.hidden)load()},30000);
+  loadDevices().then(load).catch(err=>{$('data-status').textContent='Device list unavailable · '+err.message;load();});
+  setInterval(()=>{if(!document.hidden)load()},30000);
 })();
