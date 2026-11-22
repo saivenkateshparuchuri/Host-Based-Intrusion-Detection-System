@@ -530,6 +530,13 @@ def create_app(start_scanner=True):
             if not row:
                 return "Alert not found", 404
             pid = row["pid"]
+            force_dismiss = request.form.get("force_dismiss", "0") == "1"
+            if force_dismiss:
+                conn.execute("UPDATE alerts SET status='Dismissed', note=? WHERE id=?",
+                             (f"Alert dismissed by analyst (PID {pid or 'N/A'}).", aid))
+                conn.commit()
+                flash(f"Alert #{aid} marked as Dismissed.")
+                return redirect(url_for("alerts"))
             if not pid:
                 flash("No process ID associated with this alert.")
                 return redirect(url_for("alert", aid=aid))
@@ -552,7 +559,19 @@ def create_app(start_scanner=True):
                 conn.commit()
                 flash(f"Process PID {pid} was already stopped. Alert marked Dismissed.")
             except psutil.AccessDenied:
-                flash(f"Permission denied: unable to terminate PID {pid}. Process requires elevated privileges.")
+                import subprocess
+                try:
+                    res = subprocess.run(["kill", "-9", str(pid)], capture_output=True, text=True)
+                    if res.returncode == 0:
+                        conn.execute("UPDATE alerts SET status='Dismissed', note=? WHERE id=?",
+                                     (f"Process PID {pid} terminated via SIGKILL.", aid))
+                        db.log_event(conn, "process_kill", f"PID {pid} ({row['subject']}) killed with SIGKILL for alert #{aid}")
+                        conn.commit()
+                        flash(f"Terminated process {row['subject']} (PID {pid}) via SIGKILL.")
+                        return redirect(url_for("alert", aid=aid))
+                except Exception:
+                    pass
+                flash(f"Permission denied for PID {pid}. This occurs for system-protected processes or when HIDS runs with standard user rights. You can click 'Dismiss Alert (Keep Process)' or run 'kill -9 {pid}' in Terminal.")
             except Exception as e:
                 flash(f"Failed to terminate PID {pid}: {e}")
         finally:

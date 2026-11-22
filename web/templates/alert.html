@@ -11,13 +11,22 @@
 {% if a.pid and a.status != 'Dismissed' %}
 <div class="card" style="border: 1px solid #7a313e; background: #26161c; margin-bottom: 15px;">
   <h3 style="color: #ff9ba0; margin-top: 0;">Incident Response / Containment</h3>
-  <p style="font-size: 13px; color: #fbd0d5;">Terminate the running process (PID {{ a.pid }}) and automatically mark this alert as Dismissed.</p>
-  <form method="post" action="/alert/{{ a.id }}/kill" onsubmit="return confirm('Terminate process {{ a.subject }} (PID {{ a.pid }})?');">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button type="submit" style="background: #e63946; color: #fff; font-weight: bold; padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer;">
-      &#x2715; Terminate Process (PID {{ a.pid }})
-    </button>
-  </form>
+  <p style="font-size: 13px; color: #fbd0d5;">Terminate the running process (PID {{ a.pid }}) or dismiss the alert from your monitoring queue.</p>
+  <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+    <form method="post" action="/alert/{{ a.id }}/kill" onsubmit="return confirm('Terminate process {{ a.subject }} (PID {{ a.pid }})?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" style="background: #e63946; color: #fff; font-weight: bold; padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer;">
+        &#x2715; Terminate Process (PID {{ a.pid }})
+      </button>
+    </form>
+    <form method="post" action="/alert/{{ a.id }}/kill">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="force_dismiss" value="1">
+      <button type="submit" style="background: #2a3d5e; color: #a4c7f0; border: 1px solid #3d5885; font-weight: bold; padding: 9px 18px; border-radius: 8px; cursor: pointer;">
+        Dismiss Alert (Keep Process)
+      </button>
+    </form>
+  </div>
 </div>
 {% endif %}
 <div class="card"><h3>Analyst review</h3>
