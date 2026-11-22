@@ -321,14 +321,14 @@ def create_app(start_scanner=True):
         subjects = Counter()
         recent = []
         rows = q("""SELECT id, severity, subject, pid, reasons, status, first_seen, last_seen
-                    FROM alerts WHERE first_seen>=?""" + device_sql + " ORDER BY last_seen DESC",
-                    (start,) + device_args)
-        open_statuses = {"New", "Investigating"}
+                    FROM alerts WHERE (last_seen>=? OR first_seen>=?)""" + device_sql + " ORDER BY last_seen DESC",
+                    (start, start) + device_args)
+        open_statuses = {"New", "Investigating", "Confirmed"}
         input_taps = 0
         persistence = 0
         open_count = 0
         for row in rows:
-            t = row["first_seen"]
+            t = row["last_seen"] if row["last_seen"] >= start else row["first_seen"]
             index = max(0, min(n_buckets - 1, int((t - start) // step)))
             series["Total"][index] += 1
             sev = row["severity"]
