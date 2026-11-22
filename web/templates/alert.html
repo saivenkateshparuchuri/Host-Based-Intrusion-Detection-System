@@ -8,6 +8,18 @@
  <h3>Why this alert fired</h3><ul>{% for r in reasons %}<li>{{ r }}</li>{% endfor %}</ul>
  <p class="muted">An indicator is not proof of malware. Review the context before acting.</p>
 </div>
+{% if a.pid and a.status != 'Dismissed' %}
+<div class="card" style="border: 1px solid #7a313e; background: #26161c; margin-bottom: 15px;">
+  <h3 style="color: #ff9ba0; margin-top: 0;">Incident Response / Containment</h3>
+  <p style="font-size: 13px; color: #fbd0d5;">Terminate the running process (PID {{ a.pid }}) and automatically mark this alert as Dismissed.</p>
+  <form method="post" action="/alert/{{ a.id }}/kill" onsubmit="return confirm('Terminate process {{ a.subject }} (PID {{ a.pid }})?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button type="submit" style="background: #e63946; color: #fff; font-weight: bold; padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer;">
+      &#x2715; Terminate Process (PID {{ a.pid }})
+    </button>
+  </form>
+</div>
+{% endif %}
 <div class="card"><h3>Analyst review</h3>
 <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
  <select name="status">{% for s in ['New','Investigating','False positive','Confirmed','Dismissed'] %}

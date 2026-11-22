@@ -1,0 +1,32 @@
+{% extends "base.html" %}{% block body %}
+<h2>Detection Rules (SIEM Engine)</h2>
+<p class="muted">Pre-configured detection rules, point scores, and MITRE ATT&CK framework mappings.</p>
+<table>
+  <thead>
+    <tr>
+      <th>Rule ID</th>
+      <th>MITRE ATT&CK</th>
+      <th>Severity</th>
+      <th>Points</th>
+      <th>Detection Logic / Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rules %}
+    <tr>
+      <td><strong>{{ r.id }}</strong></td>
+      <td>
+        {% if r.mitre != '-' %}
+        <span style="background: #1e3a5f; color: #70c4ff; padding: 2px 7px; border-radius: 6px; font-weight: bold; font-size: 11px;">
+          {{ r.mitre }}
+        </span>
+        {% else %}-{% endif %}
+      </td>
+      <td class="{{ r.severity }}">{{ r.severity }}</td>
+      <td><strong>+{{ r.points }}</strong></td>
+      <td>{{ r.description }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

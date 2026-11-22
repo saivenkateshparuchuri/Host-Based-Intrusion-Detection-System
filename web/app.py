@@ -456,6 +456,59 @@ def create_app(start_scanner=True):
             conn.close()
         return redirect(_safe_next(urlsplit(request.referrer or "").path or None))
 
+    @app.route("/alert/<int:aid>/kill", methods=["POST"])
+    def alert_kill(aid):
+        conn = db.connect()
+        try:
+            row = conn.execute("SELECT pid, subject FROM alerts WHERE id=?", (aid,)).fetchone()
+            if not row:
+                return "Alert not found", 404
+            pid = row["pid"]
+            if not pid:
+                flash("No process ID associated with this alert.")
+                return redirect(url_for("alert", aid=aid))
+            try:
+                p = psutil.Process(pid)
+                p.terminate()
+                try:
+                    p.wait(timeout=2)
+                except psutil.TimeoutExpired:
+                    p.kill()
+                msg = f"Terminated process {row['subject']} (PID {pid}) and dismissed alert."
+                conn.execute("UPDATE alerts SET status='Dismissed', note=? WHERE id=?",
+                             (f"Process PID {pid} terminated via Incident Response action.", aid))
+                db.log_event(conn, "process_kill", f"PID {pid} ({row['subject']}) killed for alert #{aid}")
+                conn.commit()
+                flash(msg)
+            except psutil.NoSuchProcess:
+                conn.execute("UPDATE alerts SET status='Dismissed', note=? WHERE id=?",
+                             (f"Process PID {pid} was already stopped.", aid))
+                conn.commit()
+                flash(f"Process PID {pid} was already stopped. Alert marked Dismissed.")
+            except psutil.AccessDenied:
+                flash(f"Permission denied: unable to terminate PID {pid}. Process requires elevated privileges.")
+            except Exception as e:
+                flash(f"Failed to terminate PID {pid}: {e}")
+        finally:
+            conn.close()
+        return redirect(url_for("alert", aid=aid))
+
+    @app.route("/rules")
+    def detection_rules():
+        rule_list = []
+        for rid, pts in config.RULE_POINTS.items():
+            mitre = config.RULE_MITRE.get(rid, "-")
+            desc = config.RULE_DESCRIPTIONS.get(rid, "")
+            sev = "High" if pts >= config.HIGH_AT else ("Medium" if pts >= config.MEDIUM_AT else "Low")
+            rule_list.append({
+                "id": rid,
+                "points": pts,
+                "severity": sev,
+                "mitre": mitre,
+                "description": desc,
+            })
+        return render_template("rules.html", rules=rule_list)
+
     @app.route("/export.csv")
     def export():
         rows = q("SELECT * FROM alerts ORDER BY id")

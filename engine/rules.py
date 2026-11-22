@@ -18,6 +18,68 @@ def _in_hidden_home_dir(path):
     return any(p.startswith(".") and p not in (".local", ".config") for p in parts)
 
 
+REVERSE_SHELL_PATTERNS = (
+    "/dev/tcp/",
+    "/dev/udp/",
+    "pty.spawn",
+    "socket.socket",
+    "nc -e ",
+    "ncat -e ",
+    "netcat -e ",
+    "socat exec:",
+    "mkfifo ",
+)
+
+
+def _check_reverse_shell(p):
+    cmd = " ".join(p.cmdline) if p.cmdline else ""
+    if not cmd:
+        return False, ""
+    for pat in REVERSE_SHELL_PATTERNS:
+        if pat in cmd:
+            return True, pat
+    if ("bash -i" in cmd or "sh -i" in cmd or "zsh -i" in cmd) and (">&" in cmd or "2>&1" in cmd):
+        return True, "interactive shell redirect"
+    return False, ""
+
+
+def _check_masquerading(p):
+    if p.name in getattr(config, "CRITICAL_SYSTEM_NAMES", set()):
+        path = effective_path(p) or p.exe
+        if path and not path.startswith(getattr(config, "SYSTEM_PATH_PREFIXES", ())):
+            return True, path
+    return False, ""
+
+
+def _check_deleted_binary(p):
+    if p.exe and (p.exe.endswith(" (deleted)") or "(deleted)" in p.exe):
+        return True, p.exe
+    return False, ""
+
+
+def _check_obfuscated_cmd(p):
+    cmd = " ".join(p.cmdline) if p.cmdline else ""
+    if not cmd:
+        return False, ""
+    lower = cmd.lower()
+    pipe_shells = ("| sh", "|sh", "| bash", "|bash", "| zsh", "|zsh", "| python", "|python")
+    for tool in ("curl ", "wget ", "fetch "):
+        if tool in lower and any(ps in lower for ps in pipe_shells):
+            return True, "download piped to shell"
+    if "base64" in lower and ("-d" in lower or "--decode" in lower) and any(ps in lower for ps in pipe_shells):
+        return True, "base64 decoded pipeline"
+    if "eval(base64." in lower or "eval(b64decode" in lower or "-encodedcommand" in lower:
+        return True, "encoded eval payload"
+    return False, ""
+
+
+def _format_reason(rule_id, text):
+    mitre_id = getattr(config, "RULE_MITRE", {}).get(rule_id)
+    if mitre_id:
+        return f"[{rule_id}] [MITRE {mitre_id}] {text}"
+    return f"[{rule_id}] {text}"
+
+
 def process_rules(p):
     hits = []
     path = effective_path(p)
@@ -40,6 +102,23 @@ def process_rules(p):
                      f"(tap IDs: {p.macos_keyboard_tap_ids}); a tap is not proof of malware"))
     if p.temp_files:
         hits.append(("WRITES_TEMP_FILE", f"Has a file open in a temp location: {p.temp_files[0]}"))
+
+    is_rev, rev_pat = _check_reverse_shell(p)
+    if is_rev:
+        hits.append(("REVERSE_SHELL_PATTERN", f"Reverse shell syntax detected in command line ({rev_pat})"))
+
+    is_masq, masq_path = _check_masquerading(p)
+    if is_masq:
+        hits.append(("PROCESS_MASQUERADING", f"Process name matches system daemon ({p.name}) but executes from: {masq_path}"))
+
+    is_del, del_exe = _check_deleted_binary(p)
+    if is_del:
+        hits.append(("DELETED_EXECUTABLE_RUNNING", f"Process is executing from an unlinked or deleted binary: {del_exe}"))
+
+    is_obf, obf_detail = _check_obfuscated_cmd(p)
+    if is_obf:
+        hits.append(("OBFUSCATED_COMMAND_EXECUTION", f"Obfuscated or pipe-to-shell command execution detected ({obf_detail})"))
+
     return hits
 
 
@@ -87,11 +166,11 @@ def evaluate(processes, entries):
         if hits:
             score = sum(config.RULE_POINTS[r] for r, _ in hits)
             alerts.append(Alert(key=f"persist:{e.path}", severity=severity(score), score=score,
-                                reasons=[f"[{r}] {t}" for r, t in hits], subject=e.name, path=e.path))
+                                reasons=[_format_reason(r, t) for r, t in hits], subject=e.name, path=e.path))
 
     for pid, (p, hits) in proc_hits.items():
         score = sum(config.RULE_POINTS[r] for r, _ in hits)
         alerts.append(Alert(key=f"proc:{effective_path(p) or p.name}", severity=severity(score), score=score,
-                            reasons=[f"[{r}] {t}" for r, t in hits], subject=p.name,
+                            reasons=[_format_reason(r, t) for r, t in hits], subject=p.name,
                             pid=pid, path=effective_path(p)))
     return alerts

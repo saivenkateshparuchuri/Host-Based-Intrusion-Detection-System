@@ -25,6 +25,7 @@
     </nav>
     <p class="v2-nav-label">TOOLS</p>
     <nav class="v2-nav">
+      <a href="/rules" class="{{ 'active' if p=='/rules' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07"/></svg><span>Detection Rules</span></a>
       <a href="/#sensor-status"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h3l3-7 4 14 3-7h7"/></svg><span>Sensor Status</span></a>
       <a href="/export.csv"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v13m-5-5 5 5 5-5M4 19v3h16v-3"/></svg><span>Export CSV</span></a>
     </nav>
@@ -37,7 +38,7 @@
 </aside>
 <div class="v2-content">
   <header class="v2-page-header">
-    <div><p class="v2-eyebrow">SECURITY OPERATIONS / {{ 'OVERVIEW' if p=='/' else 'INVESTIGATION' }}</p><h1>{{ 'Dashboard' if p=='/' else ('Host Processes' if p=='/processes' else 'Security Alerts') }}</h1></div>
+    <div><p class="v2-eyebrow">SECURITY OPERATIONS / {{ 'OVERVIEW' if p=='/' else 'INVESTIGATION' }}</p><h1>{{ 'Dashboard' if p=='/' else ('Host Processes' if p=='/processes' else ('Detection Rules' if p=='/rules' else 'Security Alerts')) }}</h1></div>
     <div class="v2-header-right"><span class="v2-live"><i></i> Local HIDS Console</span><span class="v2-time" id="header-refresh">Live host monitoring</span><div class="v2-userbubble">{{ (current_user or 'H')[0]|upper }}</div></div>
   </header>
   <main class="v2-main">{% for m in get_flashed_messages() %}<div class="authinfo" role="alert">{{ m }}</div>{% endfor %}{% block body %}{% endblock %}</main>
