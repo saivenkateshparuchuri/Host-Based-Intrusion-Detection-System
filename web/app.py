@@ -4,6 +4,7 @@ import json
 import re
 import os
 import sys
+import psutil
 import secrets
 import hashlib
 from collections import Counter
@@ -409,12 +410,77 @@ def create_app(start_scanner=True):
     @app.route("/alerts")
     def alerts():
         sev = request.args.get("severity", "")
+        mode = request.args.get("mode", "active")
+        now = time.time()
+
         sql = "SELECT * FROM alerts"
-        args = ()
+        conditions = []
+        args = []
         if sev in ("Low", "Medium", "High"):
-            sql += " WHERE severity=?"; args = (sev,)
-        rows = q(sql + " ORDER BY last_seen DESC LIMIT 200", args)
-        return render_template("alerts.html", rows=rows, sev=sev)
+            conditions.append("severity=?")
+            args.append(sev)
+        if conditions:
+            sql += " WHERE " + " AND ".join(conditions)
+        sql += " ORDER BY last_seen DESC LIMIT 300"
+
+        raw_rows = q(sql, tuple(args))
+        rows = []
+        active_count = 0
+        total_count = len(raw_rows)
+
+        for r in raw_rows:
+            r_dict = dict(r)
+            pid = r_dict.get("pid")
+            is_alive = False
+            if pid:
+                try:
+                    p = psutil.Process(pid)
+                    is_alive = p.is_running() and p.status() != psutil.STATUS_ZOMBIE
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    is_alive = False
+
+            recently_seen = (now - r_dict["last_seen"]) < 600
+            is_active = (is_alive or recently_seen) and r_dict.get("status") != "Dismissed"
+            r_dict["is_running"] = is_alive
+            r_dict["is_active"] = is_active
+
+            if is_active:
+                active_count += 1
+
+            if mode == "active":
+                if is_active:
+                    rows.append(r_dict)
+            else:
+                rows.append(r_dict)
+
+        return render_template("alerts.html", rows=rows, sev=sev, mode=mode,
+                               active_count=active_count, total_count=total_count)
+
+    @app.route("/alerts/cleanup-inactive", methods=["POST"])
+    def cleanup_inactive_alerts():
+        now = time.time()
+        conn = db.connect()
+        try:
+            alerts = conn.execute("SELECT id, pid, last_seen, status FROM alerts WHERE status != 'Dismissed'").fetchall()
+            dismissed_n = 0
+            for a in alerts:
+                pid = a["pid"]
+                is_alive = False
+                if pid:
+                    try:
+                        p = psutil.Process(pid)
+                        is_alive = p.is_running() and p.status() != psutil.STATUS_ZOMBIE
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        is_alive = False
+                recently_seen = (now - a["last_seen"]) < 600
+                if not is_alive and not recently_seen:
+                    conn.execute("UPDATE alerts SET status='Dismissed', note='Auto-dismissed: Process no longer active on host.' WHERE id=?", (a["id"],))
+                    dismissed_n += 1
+            conn.commit()
+            flash(f"Cleaned up {dismissed_n} inactive/older alerts.")
+        finally:
+            conn.close()
+        return redirect(url_for("alerts", mode="active"))
 
     @app.route("/alert/<int:aid>", methods=["GET", "POST"])
     def alert(aid):

@@ -1,13 +1,80 @@
 {% extends "base.html" %}{% block body %}
-<h2>Alerts</h2>
-<form method="get">Severity:
- <select name="severity" onchange="this.form.submit()">
-  {% for s in ['','High','Medium','Low'] %}<option value="{{ s }}" {{ 'selected' if s==sev }}>{{ s or 'All' }}</option>{% endfor %}
- </select></form><br>
-<table><tr><th>Severity</th><th>Subject</th><th>PID</th><th>Reason</th><th>Last seen</th><th>Status</th></tr>
-{% for r in rows %}<tr>
- <td class="{{ r.severity }}">{{ r.severity }} ({{ r.score }})</td>
- <td><a href="/alert/{{ r.id }}">{{ r.subject }}</a></td><td>{{ r.pid or '-' }}</td>
- <td>{{ (r.reasons|fromjson)[0] }}</td><td>{{ r.last_seen|ts }}</td><td>{{ r.status }}</td></tr>
-{% else %}<tr><td colspan="6">No alerts</td></tr>{% endfor %}</table>
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
+  <div>
+    <h2 style="margin: 0 0 6px;">Security Alerts</h2>
+    <p class="muted" style="margin: 0;">Monitor actively running host threats and investigate anomalies.</p>
+  </div>
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <form method="post" action="/alerts/cleanup-inactive" onsubmit="return confirm('Dismiss older alerts whose processes have stopped?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button type="submit" style="background: #2a3d5e; color: #a4c7f0; border: 1px solid #3d5885; padding: 7px 14px; border-radius: 8px; font-size: 12px; cursor: pointer;">
+        Clean Up Inactive Alerts
+      </button>
+    </form>
+  </div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; background: #131f33; padding: 10px 14px; border-radius: 10px;">
+  <div style="display: flex; gap: 8px;">
+    <a href="/alerts?mode=active{{ '&severity=' + sev if sev else '' }}" style="text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: bold; background: {{ '#6250e9' if mode == 'active' else 'transparent' }}; color: {{ '#fff' if mode == 'active' else '#9cb3d6' }}; border: 1px solid {{ '#6250e9' if mode == 'active' else '#2e4368' }};">
+      Active &amp; Running ({{ active_count }})
+    </a>
+    <a href="/alerts?mode=all{{ '&severity=' + sev if sev else '' }}" style="text-decoration: none; padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: bold; background: {{ '#6250e9' if mode == 'all' else 'transparent' }}; color: {{ '#fff' if mode == 'all' else '#9cb3d6' }}; border: 1px solid {{ '#6250e9' if mode == 'all' else '#2e4368' }};">
+      All Alerts History ({{ total_count }})
+    </a>
+  </div>
+  <form method="get" style="display: flex; align-items: center; gap: 8px; margin: 0;">
+    <input type="hidden" name="mode" value="{{ mode }}">
+    <label for="severity-select" style="font-size: 12px; color: #91a2bb;">Severity:</label>
+    <select id="severity-select" name="severity" onchange="this.form.submit()" style="background: #1d2b43; color: #e1ebfa; border: 1px solid #354a6b; border-radius: 6px; padding: 5px 10px; font-size: 12px;">
+      {% for s in ['','High','Medium','Low'] %}<option value="{{ s }}" {{ 'selected' if s==sev }}>{{ s or 'All Severities' }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Severity</th>
+      <th>Subject</th>
+      <th>Process / PID</th>
+      <th>Reason</th>
+      <th>Last Seen</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td class="{{ r.severity }}">{{ r.severity }} ({{ r.score }})</td>
+      <td><a href="/alert/{{ r.id }}"><strong>{{ r.subject }}</strong></a></td>
+      <td>
+        {% if r.pid %}
+          <code>PID {{ r.pid }}</code>
+          {% if r.is_running %}
+            <span style="display: inline-block; background: #13392a; color: #4ade80; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px; font-weight: bold;">&#x25cf; Live</span>
+          {% else %}
+            <span style="display: inline-block; background: #2a313d; color: #8e9cae; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 4px;">Stopped</span>
+          {% endif %}
+        {% else %}
+          <span style="color: #7b8ea6;">Persistence</span>
+        {% endif %}
+      </td>
+      <td>{{ (r.reasons|fromjson)[0] }}</td>
+      <td>{{ r.last_seen|ts }}</td>
+      <td>
+        <span style="display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
+          {% if r.status == 'Dismissed' %}background: #252e3d; color: #8598b0;
+          {% elif r.status == 'Confirmed' %}background: #47262c; color: #ff9ba0;
+          {% elif r.status == 'False positive' %}background: #1c3630; color: #6ee7b7;
+          {% else %}background: #2c2547; color: #c4b5fd;{% endif %}">
+          {{ r.status }}
+        </span>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="6" style="text-align: center; padding: 30px; color: #7f95b3;">No active alerts found. System is healthy.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}
