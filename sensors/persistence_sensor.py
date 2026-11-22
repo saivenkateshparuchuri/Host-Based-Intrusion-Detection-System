@@ -71,9 +71,14 @@ def collect():
         entries.append(PersistenceEntry(source=source, name=os.path.basename(path),
                                         path=path, target=target, mtime=mtime))
 
-    for d in config.AUTOSTART_DIRS + config.EXTRA_AUTOSTART_DIRS:
+    extra_dirs = list(config.EXTRA_AUTOSTART_DIRS)
+    if os.path.isdir("/tmp/hids_demo/autostart") and "/tmp/hids_demo/autostart" not in extra_dirs:
+        extra_dirs.append("/tmp/hids_demo/autostart")
+    for d in config.AUTOSTART_DIRS + extra_dirs:
         for f in glob.glob(os.path.join(d, "*.desktop")):
             add("autostart", f, _first_token_path(_read_key(f, "Exec")))
+        for f in glob.glob(os.path.join(d, "*.plist")):
+            add("launchd", f, _plist_target(f))
     for d in config.LAUNCH_DIRS:
         for f in glob.glob(os.path.join(d, "*.plist")):
             add("launchd", f, _plist_target(f))

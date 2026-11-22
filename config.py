@@ -27,6 +27,9 @@ LAUNCH_DIRS = ([os.path.join(HOME, "Library", "LaunchAgents"), "/Library/LaunchA
                if _sys.platform == "darwin" else [])
 # Tests / demos can add extra directories without touching real ones.
 EXTRA_AUTOSTART_DIRS = [d for d in os.environ.get("HIDS_EXTRA_AUTOSTART", "").split(":") if d]
+DEMO_AUTOSTART_DIR = "/tmp/hids_demo/autostart"
+if os.path.isdir(DEMO_AUTOSTART_DIR) and DEMO_AUTOSTART_DIR not in EXTRA_AUTOSTART_DIRS:
+    EXTRA_AUTOSTART_DIRS.append(DEMO_AUTOSTART_DIR)
 
 # Known-good programs that legitimately read input devices
 # (display server, input method editors, screen readers, remappers).
