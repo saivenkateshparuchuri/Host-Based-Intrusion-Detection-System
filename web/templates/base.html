@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -8,6 +9,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='dashboard_v2.css') }}">
 </head>
+
 <body class="app-ui">
 {% set p = request.path %}
 <aside class="v2-sidebar" aria-label="Main navigation">
@@ -26,6 +28,7 @@
     <p class="v2-nav-label">TOOLS</p>
     <nav class="v2-nav">
       <a href="/persistence" class="{{ 'active' if p=='/persistence' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg><span>Persistence Monitoring</span></a>
+      <a href="/event-taps" class="{{ 'active' if p=='/event-taps' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 16h8"/></svg><span>Event-Tap Audit</span></a>
       <a href="/rules" class="{{ 'active' if p=='/rules' }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07"/></svg><span>Detection Rules</span></a>
       <a href="/#sensor-status"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12h3l3-7 4 14 3-7h7"/></svg><span>Sensor Status</span></a>
       <a href="/export.csv"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v13m-5-5 5 5 5-5M4 19v3h16v-3"/></svg><span>Export CSV</span></a>
@@ -39,11 +42,12 @@
 </aside>
 <div class="v2-content">
   <header class="v2-page-header">
-    <div><p class="v2-eyebrow">SECURITY OPERATIONS / {{ 'OVERVIEW' if p=='/' else 'INVESTIGATION' }}</p><h1>{{ 'Dashboard' if p=='/' else ('Host Processes' if p=='/processes' else ('Persistence Monitoring' if p=='/persistence' else ('Detection Rules' if p=='/rules' else 'Security Alerts'))) }}</h1></div>
+    <div><p class="v2-eyebrow">SECURITY OPERATIONS / {{ 'OVERVIEW' if p=='/' else 'INVESTIGATION' }}</p><h1>{{ 'Dashboard' if p=='/' else ('Host Processes' if p=='/processes' else ('Event-Tap Audit' if p=='/event-taps' else ('Persistence Monitoring' if p=='/persistence' else ('Detection Rules' if p=='/rules' else 'Security Alerts')))) }}</h1></div>
     <div class="v2-header-right"><span class="v2-live"><i></i> Local HIDS Console</span><span class="v2-time" id="header-refresh">Live host monitoring</span><div class="v2-userbubble">{{ (current_user or 'H')[0]|upper }}</div></div>
   </header>
   <main class="v2-main">{% for m in get_flashed_messages() %}<div class="authinfo" role="alert">{{ m }}</div>{% endfor %}{% block body %}{% endblock %}</main>
   <footer class="v2-footer"><span>HIDS Guard · Local host-based detection</span><span>Indicators are not malware verdicts. Metadata only.</span></footer>
 </div>
 </body>
+
 </html>

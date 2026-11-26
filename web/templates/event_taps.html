@@ -1,0 +1,92 @@
+{% extends "base.html" %}{% block body %}
+<div style="background: rgba(30, 58, 95, 0.45); border-left: 4px solid #38ef7d; border-radius: 8px; padding: 16px 20px; margin-bottom: 22px;">
+  <h3 style="margin: 0 0 8px 0; color: #38ef7d; font-size: 17px; font-weight: 600;">macOS Event-Tap Metadata Audit</h3>
+  <p style="margin: 0; color: #c4d7ed; font-size: 14px; line-height: 1.6;">
+    CoreGraphics Quartz event taps allow processes to intercept or observe keyboard and mouse input.
+    The HIDS uses <code>CGGetEventTapList</code> to audit active listener metadata (process ownership, tap IDs, event bitmask).
+    <strong>Privacy-First Guarantee:</strong> No keystrokes, clipboard text, or input contents are captured, stored, or transmitted.
+    An active tap is an indicator of input observation (MITRE ATT&CK <strong>T1056.001</strong>), not an automatic malware verdict.
+  </p>
+</div>
+
+<div style="display: flex; gap: 14px; margin-bottom: 20px;">
+  <div class="v2-stat" style="flex: 1; padding: 14px 18px;">
+    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">Total System Taps <span class="v2-tag">QUARTZ</span></p>
+    <div style="font-size: 24px; font-weight: 700; color: #fff;">{{ audit.total_taps }}</div>
+    <small style="color: #64748b;">All active Quartz event taps</small>
+  </div>
+  <div class="v2-stat" style="flex: 1; padding: 14px 18px;">
+    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">Keyboard-Event Taps <span class="v2-tag warning">KEY EVENTS</span></p>
+    <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">{{ audit.keyboard_taps }}</div>
+    <small style="color: #64748b;">KeyDown / KeyUp masks only</small>
+  </div>
+  <div class="v2-stat" style="flex: 1; padding: 14px 18px;">
+    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">Sensor State <span class="v2-tag danger">STATUS</span></p>
+    <div style="font-size: 24px; font-weight: 700; color: #38ef7d;">{{ audit.state|upper }}</div>
+    <small style="color: #64748b;">{{ audit.message }}</small>
+  </div>
+  <div class="v2-stat" style="flex: 1; padding: 14px 18px;">
+    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">Privacy Mode <span class="v2-tag">SAFE</span></p>
+    <div style="font-size: 24px; font-weight: 700; color: #70c4ff;">Metadata Only</div>
+    <small style="color: #64748b;">Zero raw keystrokes inspected</small>
+  </div>
+</div>
+
+<div class="v2-panel" style="padding: 16px;">
+  <div class="v2-panel-head" style="margin-bottom: 14px;">
+    <h2 style="font-size: 16px; margin: 0;">Active Keyboard-Event Tap Listeners ({{ taps|length }})</h2>
+    <span style="font-size: 12px; color: #8fa0b5;">Live processes with registered CoreGraphics event taps</span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>PID</th>
+        <th>Process Name</th>
+        <th>Executable Path</th>
+        <th>User</th>
+        <th>Tap ID(s)</th>
+        <th>Context / Classification</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in taps %}
+      <tr>
+        <td><strong>{{ t.pid }}</strong></td>
+        <td><strong style="color: #f1f5f9;">{{ t.name }}</strong></td>
+        <td>
+          <code style="background: #111a2e; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #93c5fd; word-break: break-all;">
+            {{ t.exe }}
+          </code>
+        </td>
+        <td style="font-size: 12px; color: #8fa0b5;">{{ t.username }}</td>
+        <td>
+          {% for tid in t.tap_ids %}
+          <span style="background: rgba(112, 196, 255, 0.15); color: #70c4ff; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-family: monospace;">
+            #{{ tid }}
+          </span>
+          {% endfor %}
+        </td>
+        <td>
+          {% if t.is_system %}
+          <span style="background: rgba(46, 213, 115, 0.15); color: #2ed573; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500;">
+            ✓ Apple System / Assistive Service
+          </span>
+          {% else %}
+          <span class="v2-sev Medium" style="font-size: 11px; padding: 2px 8px; border-radius: 4px;">
+            ⚠️ Userland Process Tap (Review)
+          </span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6" style="text-align: center; color: #8fa0b5; padding: 20px;">
+          No active keyboard event taps enumerated on host.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

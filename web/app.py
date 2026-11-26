@@ -16,7 +16,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import config
 import scanner
 from storage import db
-from sensors import process_sensor, persistence_sensor
+from sensors import process_sensor, persistence_sensor, macos_event_tap_sensor
 
 _state = {"procs": [], "last_scan": 0.0}
 _failures = {}      # (username, ip) -> [timestamps of recent failed logins]
@@ -614,6 +614,34 @@ def create_app(start_scanner=True):
                 "is_suspicious": is_suspicious,
             })
         return render_template("persistence.html", entries=entries, count=len(entries))
+
+    @app.route("/event-taps")
+    def event_taps():
+        if sys.platform != "darwin":
+            audit = macos_event_tap_sensor.TapAudit("unsupported", "Event-tap sensor is only supported on macOS")
+            return render_template("event_taps.html", audit=audit, taps=[])
+        audit = macos_event_tap_sensor.audit_keyboard_taps()
+        taps_data = []
+        for pid, tap_ids in (audit.by_pid or {}).items():
+            try:
+                proc = psutil.Process(pid)
+                name = proc.name()
+                exe = proc.exe() or "-"
+                username = proc.username() or "-"
+            except Exception:
+                name = f"PID {pid}"
+                exe = "-"
+                username = "-"
+            is_system = exe.startswith(("/System/", "/usr/libexec/", "/System/Library/")) or name in ("Siri", "ViewBridgeAuxiliary")
+            taps_data.append({
+                "pid": pid,
+                "name": name,
+                "exe": exe,
+                "username": username,
+                "tap_ids": tap_ids,
+                "is_system": is_system,
+            })
+        return render_template("event_taps.html", audit=audit, taps=taps_data)
 
     @app.route("/export.csv")
     def export():
