@@ -16,7 +16,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import config
 import scanner
 from storage import db
-from sensors import process_sensor
+from sensors import process_sensor, persistence_sensor
 
 _state = {"procs": [], "last_scan": 0.0}
 _failures = {}      # (username, ip) -> [timestamps of recent failed logins]
@@ -593,6 +593,27 @@ def create_app(start_scanner=True):
                 "description": desc,
             })
         return render_template("rules.html", rules=rule_list)
+
+    @app.route("/persistence")
+    def persistence():
+        try:
+            raw_entries = persistence_sensor.collect()
+        except Exception:
+            raw_entries = []
+        entries = []
+        for e in raw_entries:
+            target = e.target or ""
+            target_lower = target.lower()
+            is_suspicious = any(target_lower.startswith(prefix) for prefix in config.SUSPICIOUS_EXEC_PREFIXES)
+            entries.append({
+                "source": e.source,
+                "name": e.name,
+                "path": e.path,
+                "target": target,
+                "mtime": e.mtime,
+                "is_suspicious": is_suspicious,
+            })
+        return render_template("persistence.html", entries=entries, count=len(entries))
 
     @app.route("/export.csv")
     def export():
