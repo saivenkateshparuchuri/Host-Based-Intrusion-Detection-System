@@ -1,4 +1,12 @@
-"""Reads Linux startup entries (read-only). Never deletes or disables anything."""
+"""Persistence Monitoring Sensor.
+
+The persistence sensor reviews selected startup entries such as macOS LaunchAgents,
+LaunchDaemons, and autostart directories (read-only; never deletes or disables anything).
+These entries help identify software configured to run automatically.
+Because legitimate applications and vendor updaters also use startup items,
+an entry is evaluated in context with path heuristics and running process correlation;
+a listed item alone does not establish malware.
+"""
 import os
 import re
 import glob
