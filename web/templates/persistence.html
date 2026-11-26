@@ -1,24 +1,31 @@
 {% extends "base.html" %}{% block body %}
-<div style="background: rgba(30, 58, 95, 0.45); border-left: 4px solid #70c4ff; border-radius: 8px; padding: 16px 20px; margin-bottom: 22px;">
+<div
+  style="background: rgba(30, 58, 95, 0.45); border-left: 4px solid #70c4ff; border-radius: 8px; padding: 16px 20px; margin-bottom: 22px;">
   <h3 style="margin: 0 0 8px 0; color: #70c4ff; font-size: 17px; font-weight: 600;">Persistence Monitoring</h3>
   <p style="margin: 0; color: #c4d7ed; font-size: 14px; line-height: 1.6;">
-    The persistence sensor reviews selected macOS startup entries such as LaunchAgents. These entries can help identify software configured to run automatically. Legitimate applications and vendor updaters also use startup items, so an entry must be checked in context. A listed item alone does not establish malware.
+    The persistence sensor reviews selected macOS startup entries such as LaunchAgents. These entries can help identify
+    software configured to run automatically. Legitimate applications and vendor updaters also use startup items, so an
+    entry must be checked in context. A listed item alone does not establish malware.
   </p>
 </div>
 
 <div style="display: flex; gap: 14px; margin-bottom: 20px;">
   <div class="v2-stat" style="flex: 1; padding: 14px 18px;">
-    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">Total Startup Items <span class="v2-tag">TOTAL</span></p>
+    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">Total Startup Items <span class="v2-tag">TOTAL</span>
+    </p>
     <div style="font-size: 24px; font-weight: 700; color: #fff;">{{ count }}</div>
     <small style="color: #64748b;">Registered autorun configs</small>
   </div>
   <div class="v2-stat" style="flex: 1; padding: 14px 18px;">
-    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">LaunchAgents / Daemons <span class="v2-tag">LAUNCHD</span></p>
-    <div style="font-size: 24px; font-weight: 700; color: #70c4ff;">{{ entries|selectattr('source', 'equalto', 'launchd')|list|length }}</div>
+    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">LaunchAgents / Daemons <span
+        class="v2-tag">LAUNCHD</span></p>
+    <div style="font-size: 24px; font-weight: 700; color: #70c4ff;">{{ entries|selectattr('source', 'equalto',
+      'launchd')|list|length }}</div>
     <small style="color: #64748b;">macOS user & system plists</small>
   </div>
   <div class="v2-stat" style="flex: 1; padding: 14px 18px;">
-    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">Risk Assessment <span class="v2-tag warning">MITRE T1547</span></p>
+    <p style="margin: 0 0 6px 0; font-size: 12px; color: #8fa0b5;">Risk Assessment <span class="v2-tag warning">MITRE
+        T1547</span></p>
     <div style="font-size: 24px; font-weight: 700; color: #38ef7d;">
       {% set susp = entries|selectattr('is_suspicious')|list|length %}
       {{ susp }} Suspicious
@@ -48,22 +55,27 @@
       {% for e in entries %}
       <tr>
         <td>
-          <span style="background: rgba(112, 196, 255, 0.15); color: #70c4ff; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+          <span
+            style="background: rgba(112, 196, 255, 0.15); color: #70c4ff; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 600;">
             {{ e.source|upper }}
           </span>
         </td>
         <td><strong style="color: #f1f5f9;">{{ e.name }}</strong></td>
         <td>
-          <code style="background: #111a2e; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #93c5fd; word-break: break-all;">
+          <code
+            style="background: #111a2e; padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #93c5fd; word-break: break-all;">
             {{ e.target or '(system default)' }}
           </code>
         </td>
         <td style="font-size: 11px; color: #8fa0b5; word-break: break-all;">{{ e.path }}</td>
         <td>
           {% if e.is_suspicious %}
-          <span class="v2-sev High" style="font-size: 11px; padding: 2px 8px; border-radius: 4px;">⚠️ Suspicious Path</span>
+          <span class="v2-sev High" style="font-size: 11px; padding: 2px 8px; border-radius: 4px;">⚠️ Suspicious
+            Path</span>
           {% else %}
-          <span style="background: rgba(46, 213, 115, 0.15); color: #2ed573; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500;">✓ Known / Benign</span>
+          <span
+            style="background: rgba(46, 213, 115, 0.15); color: #2ed573; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500;">✓
+            Known / Benign</span>
           {% endif %}
         </td>
         <td style="font-size: 11px; color: #8fa0b5;">{{ e.mtime|ts if e.mtime else '-' }}</td>
